@@ -1,0 +1,1 @@
+python   function_calling.py --query 'VACC' --source_files /workspace/modelzoo_data/algorithm_modelzoo-classification-pplcnet_v2-ppcls_pplcnet_v2.md /workspace/modelzoo_data/algorithm_modelzoo-classification-pplcnet-README.md
