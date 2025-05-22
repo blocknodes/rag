@@ -2,7 +2,6 @@
 import json
 import os
 from ragflow_sdk import RAGFlow
-
 from qwen_agent.llm import get_chat_model
 
 # add args using argparse
@@ -56,7 +55,7 @@ def test(fncall_prompt_type: str = 'qwen'):
     })
 
     # Step 1: send the conversation and available functions to the model
-    messages = [{'role': 'system', 'content': "你是瀚小博，由瀚博公司自助研发，专注于机器学习领域的知识问答，请根据用户的提问，选择使用合理的工具，若用户的问题不涉及模型结构、训练、部署等问题或者无相关工具可选，请礼貌拒绝，回答时不带任何主观先验知识"},
+    messages = [{'role': 'system', 'content': "你是瀚小博，由瀚博科技研发，你是一个model zoo知识库问答助手，你可以帮助用户查询model zoo中的相关信息，但请礼貌拒绝其他无关问题."},
                 {'role': 'user', 'content': parser.parse_args().query}]
     functions = [{
         'name': 'retrieve',
@@ -135,7 +134,7 @@ def test(fncall_prompt_type: str = 'qwen'):
         miss_format = f'"ans":None,"cita":None'
         qeury_with_content=f'''{function_response}\n\n请依据以上内容回答，用户的问题，以json对象{hit_format}的形式输出,如果以上内容跟用户问题不相关，请输出{miss_format}\n,用户的问题是：{parser.parse_args().query}'''
         #print(qeury_with_content)
-        messages = [{'role': 'system', 'content': "你是瀚小博，由瀚博公司自助研发，专注于机器学习领域的知识问答，尤其是VACC(vacc是一个机器学习平台框架)的相关知识问答"},
+        messages = [{'role': 'system', 'content': "你是瀚小博，由瀚博科技研发，你是一个model zoo知识库问答助手，使用仅提供的检索文档回答以下问题。不要添加任何外部知识。"},
                    {'role': 'user', 'content': f'{qeury_with_content}'}]
 
         print('# Assistant Response 2:')
