@@ -3,6 +3,14 @@ import json
 import os
 from ragflow_sdk import RAGFlow
 from qwen_agent.llm import get_chat_model
+import openai
+import numpy as np
+from tqdm import tqdm
+
+if openai.__version__.startswith('0.'):
+    from openai.error import OpenAIError  # noqa
+else:
+    from openai import OpenAIError
 
 # add args using argparse
 import argparse
@@ -11,6 +19,12 @@ parser = argparse.ArgumentParser(description='Rag for Vacc Model Zoo')
 parser.add_argument('--source_files', type=str, nargs='+',
                     help='a list of source files')
 parser.add_argument('--query', type=str,
+                    help='the query to retrieve information')
+
+parser.add_argument('--online-index-dir', type=str,
+                    help='the query to retrieve information')
+
+parser.add_argument('--online-orig-dir', type=str,
                     help='the query to retrieve information')
 
 # Example dummy function hard coded to return the same weather
@@ -31,9 +45,61 @@ def retrieve_from_ragflow(query):
     dataset = dataset[0]
 
     result=[]
-    for c in rag_object.retrieve(question="tsm data processing?", dataset_ids=[dataset.id]):
+    for c in rag_object.retrieve(question="tsm data processing?", dataset_ids=[dataset.id],rerank_id="bge-reranker-v2-m3@Xinference"):
         result.append(c.content)
     return result
+
+def embedding(text, model="bge"):
+    """
+    Generates an embedding for the given text using OpenAI's API.
+    :param text: The input text to generate an embedding for.
+    :return: Embedding vector as a list of floats.
+    """
+    client = openai.OpenAI(base_url='http://10.24.9.6:19875/v1',api_key='EMPTY')
+
+    try:
+        response = client.embeddings.create(
+            model=model,
+            input=text
+        )
+        return response.dict()['data'][0]['embedding']
+    except OpenAIError as e:
+        print(f"An error occurred: {e}")
+        return None
+
+def read_markdown_file(file_path):
+    """
+    Reads a markdown file and returns its content as a string.
+
+    :param file_path: Path to the markdown file.
+    :return: Content of the markdown file as a string.
+    """
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return file.read()
+
+def retrieve_online(query,index_dir,origin_dir):
+    query_embedding = embedding(query)
+    lst1=[query_embedding]
+    lst2 = []
+    lst2_names=[]
+    for file in tqdm(os.listdir(index_dir)):
+        file_path = os.path.join(index_dir, file)
+        title = json.loads(open(file_path).read())['title']
+        title_embedding = embedding(title)
+        lst2_names.append(file)
+        lst2.append(np.array(title_embedding))
+    lst1 = np.array(lst1)
+    lst2 = np.array(lst2)
+    result = lst1 @ lst2.T
+    print(result)
+    ## use top-1
+    top_index = np.argmax(result)
+    print(f"Top match: {lst2_names[top_index]} with score {result[0][top_index]}")
+    file_name = lst2_names[top_index]
+    file_path = os.path.join(origin_dir, file_name[:-4]+"md")
+
+    md_content = read_markdown_file(file_path)
+    return [md_content]
 
 def format_response(sources):
     idx=1
@@ -105,6 +171,10 @@ def test(fncall_prompt_type: str = 'qwen'):
             available_functions = {
                 'retrieve': retrieve,
             }
+        elif parser.parse_args().online_index_dir:
+            available_functions = {
+                'retrieve': retrieve_online,
+            }
         else:
             available_functions = {
                 'retrieve': retrieve_from_ragflow,
@@ -117,6 +187,12 @@ def test(fncall_prompt_type: str = 'qwen'):
             function_response = function_to_call(
                 query=function_args.get('query'),
                 sources=parser.parse_args().source_files,
+            )
+        elif parser.parse_args().online_index_dir:
+            function_response = function_to_call(
+                query=function_args.get('query'),
+                index_dir=parser.parse_args().online_index_dir,
+                origin_dir=parser.parse_args().online_orig_dir
             )
         else:
 

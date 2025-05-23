@@ -1,1 +1,1 @@
-python   function_calling.py --query 'VACC' --source_files /workspace/modelzoo_data/algorithm_modelzoo-classification-pplcnet_v2-ppcls_pplcnet_v2.md /workspace/modelzoo_data/algorithm_modelzoo-classification-pplcnet-README.md
+python   function_calling.py --query ‘vit+clip在vacc平台的部署？’ --online-index-dir ../modelzoo_data_name/ --online-orig-dir ../modelzoo_data
