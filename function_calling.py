@@ -27,6 +27,9 @@ parser.add_argument('--online-index-dir', type=str,
 parser.add_argument('--online-orig-dir', type=str,
                     help='the query to retrieve information')
 
+parser.add_argument('--topk', type=int,
+                    help='the query to retrieve information')
+
 # Example dummy function hard coded to return the same weather
 # In production, this could be your backend API or an external API
 def retrieve(query, sources):
@@ -39,15 +42,15 @@ def retrieve(query, sources):
 
     return contents
 
-def retrieve_from_ragflow(query):
+def retrieve_from_ragflow(query,top_k=4):
     rag_object = RAGFlow(api_key="ragflow-A1M2ViY2I0MjNkNjExZjA5NzEzODJjYm", base_url="http://10.24.73.27:8080")
     dataset = rag_object.list_datasets(name="modelzoo_base")
     dataset = dataset[0]
 
     result=[]
-    for c in rag_object.retrieve(question="tsm data processing?", dataset_ids=[dataset.id],rerank_id="bge-reranker-v2-m3@Xinference"):
+    for c in rag_object.retrieve(question=query, dataset_ids=[dataset.id],rerank_id="bge-reranker-v2-m3@Xinference",vector_similarity_weight=0.9):
         result.append(c.content)
-    return result
+    return result[:top_k]
 
 def embedding(text, model="bge"):
     """
@@ -77,7 +80,7 @@ def read_markdown_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
 
-def retrieve_online(query,index_dir,origin_dir):
+def retrieve_online(query,index_dir,origin_dir, topk=2):
     query_embedding = embedding(query)
     lst1=[query_embedding]
     lst2 = []
@@ -92,20 +95,29 @@ def retrieve_online(query,index_dir,origin_dir):
     lst2 = np.array(lst2)
     result = lst1 @ lst2.T
     print(result)
-    ## use top-1
-    top_index = np.argmax(result)
-    print(f"Top match: {lst2_names[top_index]} with score {result[0][top_index]}")
-    file_name = lst2_names[top_index]
-    file_path = os.path.join(origin_dir, file_name[:-4]+"md")
+    ## use top-k
+    top_k_indices = np.argsort(result, axis=-1)[:, -topk:]
+    print(top_k_indices)
+    selected_sources = []
+    selected_files = []
+    for index in top_k_indices[0]:
+        file_name = lst2_names[index]
+        selected_files.append(file_name)
+        file_path = os.path.join(origin_dir, file_name[:-4]+"md")
 
-    md_content = read_markdown_file(file_path)
-    return [md_content]
+        md_content = read_markdown_file(file_path)
+        md_content = f'文件名:{file_name[:-5]}\n文件内容:\n{md_content}'
+        selected_sources.append(md_content)
+    print(f'selected file is {selected_files}')
+
+
+    return selected_sources
 
 def format_response(sources):
     idx=1
     contents=[]
-    for source in sources:
-        contents.append(f'source: {idx}\n{source}')
+    for source in sources[::-1]:
+        contents.append(f'source {idx}:\n{source}\n')
         idx = idx +1
 
     return "\n\n".join(contents)
@@ -114,7 +126,7 @@ def test(fncall_prompt_type: str = 'qwen'):
     llm = get_chat_model({
         # Use the model service provided by DashScope:
         'model': 'qwen3',
-        'model_server': 'http://10.24.9.6:19875/v1',
+        'model_server': 'http://10.24.9.6:11434/v1',
         'generate_cfg': {
             'fncall_prompt_type': fncall_prompt_type
         },
@@ -192,7 +204,8 @@ def test(fncall_prompt_type: str = 'qwen'):
             function_response = function_to_call(
                 query=function_args.get('query'),
                 index_dir=parser.parse_args().online_index_dir,
-                origin_dir=parser.parse_args().online_orig_dir
+                origin_dir=parser.parse_args().online_orig_dir,
+                topk=parser.parse_args().topk,
             )
         else:
 
@@ -206,9 +219,9 @@ def test(fncall_prompt_type: str = 'qwen'):
 
 
         # Step 4: send the info for each function call and function response to the model
-        hit_format=f'"ans":answer,"cita":citation number'
+        hit_format=f'"ans":answer,"cita":number'
         miss_format = f'"ans":None,"cita":None'
-        qeury_with_content=f'''{function_response}\n\n请依据以上内容回答，用户的问题，以json对象{hit_format}的形式输出,如果以上内容跟用户问题不相关，请输出{miss_format}\n,用户的问题是：{parser.parse_args().query}'''
+        qeury_with_content=f'''{function_response}\n\n请依据以上内容回答，用户的问题，以json对象{hit_format}的形式输出,其中cita指的是引用的第几个资料,而不是具体资料中的第几个部分！,如果以上内容跟用户问题不相关，请输出{miss_format}\n,用户的问题是：{parser.parse_args().query}'''
         #print(qeury_with_content)
         messages = [{'role': 'system', 'content': "你是瀚小博，由瀚博科技研发，你是一个model zoo知识库问答助手，使用仅提供的检索文档回答以下问题。不要添加任何外部知识。"},
                    {'role': 'user', 'content': f'{qeury_with_content}'}]
