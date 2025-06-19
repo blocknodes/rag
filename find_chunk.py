@@ -29,10 +29,14 @@ for index, row in df.iterrows():
     answer = row['answer']
     question = row['question']
     reposonse = retrieve_from_ragflow(answer)
+    reposonse_full = retrieve_from_ragflow(question+answer)
+    if reposonse!=reposonse_full:
+        print(f'answer:{answer}\n\n{reposonse}\n\n{reposonse_full}\n\n')
+        continue
     df.at[index, 'context'] = reposonse
     # add to row
 
     print(f"Retrieved Answer: {reposonse}")  # Print the retrieved answer
 
 
-df.to_csv('test_with_context_new.csv', index=False)
+df.to_csv('test_with_context_same.csv', index=False)

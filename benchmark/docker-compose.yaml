@@ -1,0 +1,136 @@
+services:
+  prompt_server:
+    image: harbor.vastaitech.com/ai_deliver/vllm_vacc:v0.9.0.1Rer
+    container_name: prompt_server
+    ulimits:
+      stack: 67108864
+      memlock: -1
+    restart: always
+    shm_size: 256g
+    privileged: true
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - 11222:8000
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      - VACC_LOG_LEVEL=critical,critical
+      - VLLM_MLA_PERFORM_MATRIX_ABSORPTION=0
+    volumes:
+      - /mnt/nvme0n1/db/data/models/:/weights
+    working_dir: /workdir/
+    command: 
+      - -c
+      - |
+        exec taskset -c 64-95 python3 -m vllm.entrypoints.openai.api_server --model /weights/Qwen3-0.6B/ --tensor-parallel-size 1  --gpu-memory-utilization 0.3 --max-model-len 8192 --port 8000 --served-model-name prompt_model
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: ["gpu"]
+              device_ids: ["0"]
+
+  guard_server:
+    image: harbor.vastaitech.com/ai_deliver/vllm_vacc:v0.9.0.1Rer
+    container_name: guard_server
+    ulimits:
+      stack: 67108864
+      memlock: -1
+    restart: always
+    shm_size: 256g
+    privileged: true
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - 11223:8898
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      - VACC_LOG_LEVEL=critical,critical
+      - VLLM_MLA_PERFORM_MATRIX_ABSORPTION=0
+    volumes:
+      - /mnt/nvme0n1/db/data/models/:/weights
+    working_dir: /workdir/
+    command: 
+      - -c
+      - |
+        exec taskset -c 64-95 python3 -m vllm.entrypoints.openai.api_server --model /weights/ChineseGuard-1.5B/ --tensor-parallel-size 1  --gpu-memory-utilization 0.2 --max-model-len 8192 --port 8898 --served-model-name safe-guard 
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: ["gpu"]
+              device_ids: ["0"]
+
+  embedding_server:
+    image: harbor.vastaitech.com/ai_deliver/vllm_vacc:v0.9.0.1Rer
+    container_name: embedding_server
+    ulimits:
+      stack: 67108864
+      memlock: -1
+    restart: always
+    shm_size: 256g
+    privileged: true
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - 11224:9998
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      - VACC_LOG_LEVEL=critical,critical
+      - VLLM_MLA_PERFORM_MATRIX_ABSORPTION=0
+    volumes:
+      - /mnt/nvme0n1/db/data/models/:/weights
+    working_dir: /workdir/
+    command: 
+      - -c
+      - |
+        exec taskset -c 64-95 python3 -m vllm.entrypoints.openai.api_server --model /weights/Qwen3-Embedding-0.6B/ --gpu-memory-utilization 0.09 --port 9998 --served-model-name qwen3-embedding 
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: ["gpu"]
+              device_ids: ["0"]
+
+  rerank_server:
+    image: harbor.vastaitech.com/ai_deliver/vllm_vacc:v0.9.0.1Rer
+    container_name: rerank_server
+    ulimits:
+      stack: 67108864
+      memlock: -1
+    restart: always
+    shm_size: 256g
+    privileged: true
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - 11225:9999
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      - VACC_LOG_LEVEL=critical,critical
+      - VLLM_MLA_PERFORM_MATRIX_ABSORPTION=0
+    volumes:
+      - /mnt/nvme0n1/db/data/models/:/weights
+    working_dir: /workdir/
+    command: 
+      - -c
+      - |
+        exec taskset -c 64-95 vllm serve  /weights/Qwen3-Reranker-0.6B --hf_overrides '{"architectures": ["Qwen3ForSequenceClassification"],"classifier_from_token": ["no", "yes"],"is_original_qwen3_reranker": true}' --gpu-memory-utilization 0.09 --port 9999 --served-model-name qwen3-reranker
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: ["gpu"]
+              device_ids: ["0"]

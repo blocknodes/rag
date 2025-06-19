@@ -210,7 +210,8 @@ def test(fncall_prompt_type: str = 'qwen'):
         else:
 
             function_response = function_to_call(
-                query=function_args.get('query')
+                query=function_args.get('query'),
+                top_k=parser.parse_args().topk,
             )
 
         # format
@@ -223,8 +224,8 @@ def test(fncall_prompt_type: str = 'qwen'):
         miss_format = f'"ans":None,"cita":None'
         qeury_with_content=f'''{function_response}\n\n请依据以上内容回答，用户的问题，以json对象{hit_format}的形式输出,其中cita指的是引用的第几个资料,而不是具体资料中的第几个部分！,如果以上内容跟用户问题不相关，请输出{miss_format}\n,用户的问题是：{parser.parse_args().query}'''
         #print(qeury_with_content)
-        messages = [{'role': 'system', 'content': "你是瀚小博，由瀚博科技研发，你是一个model zoo知识库问答助手，使用仅提供的检索文档回答以下问题。不要添加任何外部知识。"},
-                   {'role': 'user', 'content': f'{qeury_with_content}'}]
+        messages = [{'role': 'system', 'content': "You are 瀚小博 for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know."},
+                   {'role': 'user', 'content': f'Context: {function_response}\n\nQuestion: {parser.parse_args().query}'}]
 
         print('# Assistant Response 2:')
         for responses in llm.chat(

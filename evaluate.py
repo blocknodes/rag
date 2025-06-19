@@ -12,11 +12,17 @@ evaluator_embeddings = LangchainEmbeddingsWrapper(OpenAIEmbeddings())
 from ragas import SingleTurnSample
 from ragas.metrics import AspectCritic
 
-test_data = {
-    "user_input": "summarise given text\nThe company reported an 8% rise in Q3 2024, driven by strong performance in the Asian market. Sales in this region have significantly contributed to the overall growth. Analysts attribute this success to strategic marketing and product localization. The positive trend in the Asian market is expected to continue into the next quarter.",
-    "response": "The company experienced an 8% decrease in Q3 2024, largely due to effective marketing strategies and product adaptation, with expectations of continued growth in the coming quarter.",
-}
+from ragas.dataset_schema import SingleTurnSample
+from ragas.metrics import AnswerAccuracy
 
-metric = AspectCritic(name="summary_accuracy",llm=evaluator_llm, definition="Verify if the summary is accurate.")
-test_data = SingleTurnSample(**test_data)
-print(metric.single_turn_score(test_data))
+sample = SingleTurnSample(
+    user_input="When and where was Einstein born?",
+    response="Albert Einstein was born in 1879, German.",
+    reference="Albert Einstein was born in 1879."
+)
+
+scorer = AnswerAccuracy(llm=evaluator_llm) # evaluator_llm wrapped with ragas LLM Wrapper
+score = scorer.single_turn_score(sample)
+print(score)
+
+#print(metric.single_turn_score(test_data))
