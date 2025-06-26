@@ -54,7 +54,7 @@ def run_rerank(client, model_uid,args):
 
 def run_llm(client, model_uid,args):
     # warm up
-    for i in range(10):
+    for i in range(1):
         client.chat.completions.create(
             model=model_uid,
             messages=[
@@ -63,11 +63,12 @@ def run_llm(client, model_uid,args):
                     "role": "user",
                 }
             ],
-            max_tokens=8,
+            max_tokens=args['max_tokens'],
         )
     start = time.time()
+    total_len=0
     for i in range(args['num_reqs']):
-        client.chat.completions.create(
+        response=client.chat.completions.create(
             model=model_uid,
             messages=[
                 {
@@ -75,10 +76,12 @@ def run_llm(client, model_uid,args):
                     "role": "user",
                 }
             ],
-            max_tokens=8,
+            max_tokens=args['max_tokens'],
         )
+        total_len = total_len + len(response.choices[0].message.content)
+        print(len(response.choices[0].message.content))
     end = time.time()
-    latency = (end - start) / args['num_reqs']
+    latency = (end - start) * 1024 / total_len
     print(f"Time taken for llm {args['num_reqs']} reqs length is {args['len']}  is {end - start} seconds, latency is {latency} seconds per request")
 
 def run(client, model_uid,args,type="embedding"):
@@ -101,11 +104,11 @@ def get_client(ip,port):
     )
 
 if __name__ == "__main__":
-    run(cohere.Client(base_url="http://192.168.28.113:11225", api_key="sk-fake-key"), "qwen3-reranker",{'qlen':64,'klen':512,'num_reqs':100},type="reranker")
-    client = get_client("192.168.28.113",'11224')
+    run(cohere.Client(base_url="http://192.168.30.127:11225", api_key="sk-fake-key"), "qwen3-reranker",{'qlen':64,'klen':512,'num_reqs':10},type="reranker")
+    client = get_client("192.168.30.127",'11224')
     run(client, "qwen3-embedding",{'len':512,'num_reqs':100},type="embedding")
-    client = get_client("192.168.28.113",'11223')
-    run(client, "safe-guard",{'len':512,'num_reqs':100},type="llm")
-    client = get_client("192.168.28.113",'11222')
-    run(client, "prompt_model",{'len':512,'num_reqs':100},type="llm")
+    client = get_client("192.168.30.127",'11223')
+    run(client, "safe-guard",{'len':512,'num_reqs':10,'max_tokens':8},type="llm")
+    client = get_client("192.168.30.127",'11222')
+    run(client, "prompt_model",{'len':512,'num_reqs':10,'max_tokens':16384-1024},type="llm")
 
