@@ -11,6 +11,6 @@ PYTHONPATH=../Qwen-Agent/:$PYTHONPATH  ./cmd.sh
 
 VLLM memory-occupy estimation:
 
-$$kvcache\ size/token=2*head\_dim*num\_key\_value\_heads*num\_hidden\_layers*(dtype/byte)$$
+$$kvcache\ size/token = 2*head\_dim*num\_key\_value\_heads*num\_hidden\_layers*(dtype/byte)$$
 $$param\ size = param \ size * (dtype/byte)$$
 $$total\ mem = kvcache\ size/token * model\ max\ len*concurrency + mode\ size + static\ graph\ etc.$$
